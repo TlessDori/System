@@ -1,74 +1,124 @@
-<!DOCTYPE html>
-<html lang="en" dir="ltr">
-  <head>
-    <meta charset="utf-8">
-    <title>Manage Supplier</title>
-    <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
-		<script src="bootstrap/js/jquery.min.js"></script>
-		<script src="bootstrap/js/bootstrap.min.js"></script>
-    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
-    <link rel="shortcut icon" href="images/icon.svg" type="image/x-icon">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-    <link rel="stylesheet" href="css/sidenav.css">
-    <link rel="stylesheet" href="css/home.css">
-    <script src="js/manage_supplier.js"></script>
-    <script src="js/validateForm.js"></script>
-    <script src="js/restrict.js"></script>
-  </head>
-  <body>
-    <!-- including side navigations -->
-    <?php include("sections/sidenav.html"); ?>
+<?php
+  require "db_connection.php";
 
-    <div class="container-fluid">
-      <div class="container">
+  if($con) {
+    if(isset($_GET["action"]) && $_GET["action"] == "delete") {
+      $id = $_GET["id"];
+      $query = "DELETE FROM suppliers WHERE ID = $id";
+      $result = mysqli_query($con, $query);
+      if(!empty($result))
+    		showSuppliers(0);
+    }
 
-        <!-- header section -->
-        <?php
-          require "php/header.php";
-          createHeader('group', 'Manage Supplier', 'Manage Existing Supplier');
-        ?>
-        <!-- header section end -->
+    if(isset($_GET["action"]) && $_GET["action"] == "edit") {
+      $id = $_GET["id"];
+      showSuppliers($id);
+    }
 
-        <!-- form content -->
-        <div class="row">
+    if(isset($_GET["action"]) && $_GET["action"] == "update") {
+      $id = $_GET["id"];
+      $name = ucwords($_GET["name"]);
+      $email = $_GET["email"];
+      $contact_number = $_GET["contact_number"];
+      $address = ucwords($_GET["address"]);
+      updateSupplier($id, $name, $email, $contact_number, $address);
+    }
 
-          <div class="col-md-12 form-group form-inline">
-            <label class="font-weight-bold" for="">Search :&emsp;</label>
-            <input type="text" class="form-control" id="" placeholder="Search Supplier" onkeyup="searchSupplier(this.value);">
-          </div>
+    if(isset($_GET["action"]) && $_GET["action"] == "cancel")
+      showSuppliers(0);
 
-          <div class="col col-md-12">
-            <hr class="col-md-12" style="padding: 0px; border-top: 2px solid  #02b6ff;">
-          </div>
+    if(isset($_GET["action"]) && $_GET["action"] == "search")
+      searchSupplier(strtoupper($_GET["text"]));
+  }
 
-          <div class="col col-md-12 table-responsive">
-            <div class="table-responsive">
-            	<table class="table table-bordered table-striped table-hover">
-            		<thead>
-            			<tr>
-                    <th style="width: 5%;">SL</th>
-            				<th style="width: 10%;">ID</th>
-            				<th style="width: 20%;">Name</th>
-                    <th style="width: 15%;">Email</th>
-                    <th style="width: 15%;">Contact Number</th>
-                    <th style="width: 20%;">Address</th>
-                    <th style="width: 15%;">Action</th>
-            			</tr>
-            		</thead>
-                <tbody id="suppliers_div">
-                  <?php
-                    require 'php/manage_supplier.php';
-                    showSuppliers(0);
-                  ?>
-            		</tbody>
-            	</table>
-            </div>
-          </div>
+  function showSuppliers($id) {
+    require "db_connection.php";
+    if($con) {
+      $seq_no = 0;
+      $query = "SELECT * FROM suppliers";
+      $result = mysqli_query($con, $query);
+      while($row = mysqli_fetch_array($result)) {
+        $seq_no++;
+        if($row['ID'] == $id)
+          showEditOptionsRow($seq_no, $row);
+        else
+          showSupplierRow($seq_no, $row);
+      }
+    }
+  }
 
-        </div>
-        <!-- form content end -->
-        <hr style="border-top: 2px solid #ff5252;">
-      </div>
-    </div>
-  </body>
-</html>
+  function showSupplierRow($seq_no, $row) {
+    ?>
+    <tr>
+      <td><?php echo $seq_no; ?></td>
+      <td><?php echo $row['ID'] ?></td>
+      <td><?php echo $row['NAME']; ?></td>
+      <td><?php echo $row['EMAIL']; ?></td>
+      <td><?php echo $row['CONTACT_NUMBER']; ?></td>
+      <td><?php echo $row['ADDRESS']; ?></td>
+      <td>
+        <button href="" class="btn btn-info btn-sm" onclick="editSupplier(<?php echo $row['ID']; ?>);">
+          <i class="fa fa-pencil"></i>
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="deleteSupplier(<?php echo $row['ID']; ?>);">
+          <i class="fa fa-trash"></i>
+        </button>
+      </td>
+    </tr>
+    <?php
+  }
+
+function showEditOptionsRow($seq_no, $row) {
+  ?>
+  <tr>
+    <td><?php echo $seq_no; ?></td>
+    <td><?php echo $row['ID'] ?></td>
+    <td>
+      <input type="text" class="form-control" value="<?php echo $row['NAME']; ?>" placeholder="Name" id="supplier_name" onkeyup="validateName(this.value, 'name_error');">
+      <code class="text-danger small font-weight-bold float-right" id="name_error" style="display: none;"></code>
+    </td>
+    <td>
+      <input type="email" class="form-control" value="<?php echo $row['EMAIL']; ?>" placeholder="Email" id="supplier_email" onblur="validateContactNumber(this.value, 'email_error');">
+    </td>
+    <td>
+      <input type="number" class="form-control" value="<?php echo $row['CONTACT_NUMBER']; ?>" placeholder="Contact Number" id="supplier_contact_number" onblur="validateContactNumber(this.value, 'contact_number_error');">
+      <code class="text-danger small font-weight-bold float-right" id="contact_number_error" style="display: none;"></code>
+    </td>
+    <td>
+      <textarea class="form-control" placeholder="Address" id="supplier_address" onblur="validateAddress(this.value, 'address_error');"><?php echo $row['ADDRESS']; ?></textarea>
+      <code class="text-danger small font-weight-bold float-right" id="address_error" style="display: none;"></code>
+    </td>
+    <td>
+      <button href="" class="btn btn-success btn-sm" onclick="updateSupplier(<?php echo $row['ID']; ?>);">
+        <i class="fa fa-edit"></i>
+      </button>
+      <button class="btn btn-danger btn-sm" onclick="cancel();">
+        <i class="fa fa-close"></i>
+      </button>
+    </td>
+  </tr>
+  <?php
+}
+
+function updateSupplier($id, $name, $email, $contact_number, $address) {
+  require "db_connection.php";
+  $query = "UPDATE suppliers SET NAME = '$name', EMAIL = '$email', CONTACT_NUMBER = '$contact_number', ADDRESS = '$address' WHERE ID = $id";
+  $result = mysqli_query($con, $query);
+  if(!empty($result))
+    showSuppliers(0);
+}
+
+function searchSupplier($text) {
+  require "db_connection.php";
+  if($con) {
+    $seq_no = 0;
+    $query = "SELECT * FROM suppliers WHERE UPPER(NAME) LIKE '%$text%'";
+    $result = mysqli_query($con, $query);
+    while($row = mysqli_fetch_array($result)) {
+      $seq_no++;
+      showSupplierRow($seq_no, $row);
+    }
+  }
+}
+
+?>

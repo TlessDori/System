@@ -1,75 +1,129 @@
-<!DOCTYPE html>
-<html lang="en" dir="ltr">
-  <head>
-    <meta charset="utf-8">
-    <title>Manage Medicines</title>
-    <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
-		<script src="bootstrap/js/jquery.min.js"></script>
-		<script src="bootstrap/js/bootstrap.min.js"></script>
-    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
-    <link rel="shortcut icon" href="images/icon.svg" type="image/x-icon">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-    <link rel="stylesheet" href="css/sidenav.css">
-    <link rel="stylesheet" href="css/home.css">
-    <script src="js/manage_medicine.js"></script>
-    <script src="js/validateForm.js"></script>
-    <script src="js/restrict.js"></script>
-  </head>
-  <body>
-    <!-- including side navigations -->
-    <?php include("sections/sidenav.html"); ?>
+<?php
+  require "db_connection.php";
 
-    <div class="container-fluid">
-      <div class="container">
+  if($con) {
+    if(isset($_GET["action"]) && $_GET["action"] == "delete") {
+      $id = $_GET["id"];
+      $query = "DELETE FROM medicines WHERE ID = $id";
+      $result = mysqli_query($con, $query);
+      if(!empty($result))
+    		showMedicines(0);
+    }
 
-        <!-- header section -->
-        <?php
-          require "php/header.php";
-          createHeader('shopping-bag', 'Manage Medicines', 'Manage Existing Medicine');
-        ?>
-        <!-- header section end -->
+    if(isset($_GET["action"]) && $_GET["action"] == "edit") {
+      $id = $_GET["id"];
+      showMedicines($id);
+    }
 
-        <!-- form content -->
-        <div class="row">
+    if(isset($_GET["action"]) && $_GET["action"] == "update") {
+      $id = $_GET["id"];
+      $name = ucwords($_GET["name"]);
+      $packing = strtoupper($_GET["packing"]);
+      $generic_name = ucwords($_GET["generic_name"]);
+      $suppliers_name = ucwords($_GET["suppliers_name"]);
+      updateMedicine($id, $name, $packing, $generic_name, $suppliers_name);
+    }
 
-          <div class="col-md-12 form-group form-inline">
-            <label class="font-weight-bold" for="">Search :&emsp;</label>
-            <input type="text" class="form-control" id="by_name" placeholder="By Medicine Name" onkeyup="searchMedicine(this.value, 'name');">
-            &emsp;<input type="text" class="form-control" id="by_generic_name" placeholder="By Generic Name" onkeyup="searchMedicine(this.value, 'generic_name');">
-            &emsp;<input type="text" class="form-control" id="by_suppliers_name" placeholder="By Supplier Name" onkeyup="searchMedicine(this.value, 'suppliers_name');">
-          </div>
+    if(isset($_GET["action"]) && $_GET["action"] == "cancel")
+      showMedicines(0);
 
-          <div class="col col-md-12">
-            <hr class="col-md-12" style="padding: 0px; border-top: 2px solid  #02b6ff;">
-          </div>
+    if(isset($_GET["action"]) && $_GET["action"] == "search")
+      searchMedicine(strtoupper($_GET["text"]), $_GET["tag"]);
+  }
 
-          <div class="col col-md-12 table-responsive">
-            <div class="table-responsive">
-            	<table class="table table-bordered table-striped table-hover">
-            		<thead>
-            			<tr>
-            				<th style="width: 5%;">SL.</th>
-            				<th style="width: 20%;">Medicine Name</th>
-                    <th style="width: 10%;">Packing</th>
-                    <th style="width: 30%;">Generic Name</th>
-            				<th style="width: 20%;">Supplier</th>
-                    <th style="width: 15%;">Action</th>
-            			</tr>
-            		</thead>
-            		<tbody id="medicines_div">
-                  <?php
-                    require 'php/manage_medicine.php';
-                    showMedicines(0);
-                  ?>
-            		</tbody>
-            	</table>
-            </div>
-          </div>
+  function showMedicines($id) {
+    require "db_connection.php";
+    if($con) {
+      $seq_no = 0;
+      $query = "SELECT * FROM medicines";
+      $result = mysqli_query($con, $query);
+      while($row = mysqli_fetch_array($result)) {
+        $seq_no++;
+        if($row['ID'] == $id)
+          showEditOptionsRow($seq_no, $row);
+        else
+          showMedicineRow($seq_no, $row);
+      }
+    }
+  }
 
-        </div>
-        <!-- form content end -->
-        <hr style="border-top: 2px solid #ff5252;">
-      </div>
-    </div>
-  </body>
-</html>
+  function showMedicineRow($seq_no, $row) {
+    ?>
+    <tr>
+      <td><?php echo $seq_no; ?></td>
+      <td><?php echo $row['NAME']; ?></td>
+      <td><?php echo $row['PACKING']; ?></td>
+      <td><?php echo $row['GENERIC_NAME']; ?></td>
+      <td><?php echo $row['SUPPLIER_NAME']; ?></td>
+      <td>
+        <button href="" class="btn btn-info btn-sm" onclick="editMedicine(<?php echo $row['ID']; ?>);">
+          <i class="fa fa-pencil"></i>
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="deleteMedicine(<?php echo $row['ID']; ?>);">
+          <i class="fa fa-trash"></i>
+        </button>
+      </td>
+    </tr>
+    <?php
+  }
+
+function showEditOptionsRow($seq_no, $row) {
+  ?>
+  <tr>
+    <td><?php echo $seq_no; ?></td>
+    <td>
+      <input type="text" class="form-control" value="<?php echo $row['NAME']; ?>" placeholder="Medicine Name" id="medicine_name" onblur="notNull(this.value, 'medicine_name_error');">
+      <code class="text-danger small font-weight-bold float-right" id="medicine_name_error" style="display: none;"></code>
+    </td>
+    <td>
+      <input type="text" class="form-control" value="<?php echo $row['PACKING']; ?>" placeholder="Packing" id="packing" onblur="notNull(this.value, 'pack_error');">
+      <code class="text-danger small font-weight-bold float-right" id="pack_error" style="display: none;"></code>
+    </td>
+    <td>
+      <input type="text" class="form-control" value="<?php echo $row['GENERIC_NAME']; ?>" placeholder="Generic Name" id="generic_name" onblur="notNull(this.value, 'generic_name_error');">
+      <code class="text-danger small font-weight-bold float-right" id="generic_name_error" style="display: none;"></code>
+    </td>
+    <td>
+      <input type="text" class="form-control" value="<?php echo $row['SUPPLIER_NAME']; ?>" placeholder="Supplier Name" id="suppliers_name" onblur="notNull(this.value, 'supplier_name_error');">
+      <code class="text-danger small font-weight-bold float-right" id="supplier_name_error" style="display: none;"></code>
+    </td>
+    <td>
+      <button href="" class="btn btn-success btn-sm" onclick="updateMedicine(<?php echo $row['ID']; ?>);">
+        <i class="fa fa-edit"></i>
+      </button>
+      <button class="btn btn-danger btn-sm" onclick="cancel();">
+        <i class="fa fa-close"></i>
+      </button>
+    </td>
+  </tr>
+  <?php
+}
+
+function updateMedicine($id, $name, $packing, $generic_name, $suppliers_name) {
+  require "db_connection.php";
+  $query = "UPDATE medicines SET NAME = '$name', PACKING = '$packing', GENERIC_NAME = '$generic_name', SUPPLIER_NAME = '$suppliers_name' WHERE ID = $id";
+  $result = mysqli_query($con, $query);
+  if(!empty($result))
+    showMedicines(0);
+}
+
+function searchMedicine($text, $tag) {
+  require "db_connection.php";
+  if($tag == "name")
+    $column = "NAME";
+  if($tag == "generic_name")
+    $column = "GENERIC_NAME";
+  if($tag == "suppliers_name")
+    $column = "SUPPLIER_NAME";
+  if($con) {
+    $seq_no = 0;
+    $query = "SELECT * FROM medicines WHERE UPPER($column) LIKE '%$text%'";
+    $result = mysqli_query($con, $query);
+    while($row = mysqli_fetch_array($result)) {
+      $seq_no++;
+      showMedicineRow($seq_no, $row);
+    }
+  }
+}
+
+?>

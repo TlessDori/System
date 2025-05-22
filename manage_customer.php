@@ -1,75 +1,131 @@
-<!DOCTYPE html>
-<html lang="en" dir="ltr">
-  <head>
-    <meta charset="utf-8">
-    <title>Manage Customer</title>
-    <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
-		<script src="bootstrap/js/jquery.min.js"></script>
-		<script src="bootstrap/js/bootstrap.min.js"></script>
-    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.3.1/css/all.css" integrity="sha384-mzrmE5qonljUremFsqc01SB46JvROS7bZs3IO2EmfFsd15uHvIt+Y8vEf7N7fWAU" crossorigin="anonymous">
-    <link rel="shortcut icon" href="" type="image/x-icon">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-    <link rel="stylesheet" href="css/sidenav.css">
-    <link rel="stylesheet" href="css/home.css">
-    <script src="js/manage_customer.js"></script>
-    <script src="js/validateForm.js"></script>
-    <script src="js/restrict.js"></script>
-  </head>
-  <body style="max-height: 100%;">
-    <!-- including side navigations -->
-    <?php include("sections/sidenav.html"); ?>
+<?php
+  require "db_connection.php";
 
-    <div class="container-fluid">
-      <div class="container">
+  if($con) {
+    if(isset($_GET["action"]) && $_GET["action"] == "delete") {
+      $id = $_GET["id"];
+      $query = "DELETE FROM customers WHERE ID = $id";
+      $result = mysqli_query($con, $query);
+      if(!empty($result))
+    		showCustomers(0);
+    }
 
-        <!-- header section -->
-        <?php
-          require "php/header.php";
-          createHeader('handshake', 'Manage Customer', 'Manage Existing Customer');
-        ?>
-        <!-- header section end -->
+    if(isset($_GET["action"]) && $_GET["action"] == "edit") {
+      $id = $_GET["id"];
+      showCustomers($id);
+    }
 
-        <!-- form content -->
-        <div class="row">
+    if(isset($_GET["action"]) && $_GET["action"] == "update") {
+      $id = $_GET["id"];
+      $name = ucwords($_GET["name"]);
+      $contact_number = $_GET["contact_number"];
+      $address = ucwords($_GET["address"]);
+      $doctor_name = ucwords($_GET["doctor_name"]);
+      $doctor_address = ucwords($_GET["doctor_address"]);
+      updateCustomer($id, $name, $contact_number, $address, $doctor_name, $doctor_address);
+    }
 
-          <div class="col-md-12 form-group form-inline">
-            <label class="font-weight-bold" for="">Search :&emsp;</label>
-            <input type="text" class="form-control" id="" placeholder="Search Customer" onkeyup="searchCustomer(this.value);">
-          </div>
+    if(isset($_GET["action"]) && $_GET["action"] == "cancel")
+      showCustomers(0);
 
-          <div class="col col-md-12">
-            <hr class="col-md-12" style="padding: 0px; border-top: 2px solid  #02b6ff;">
-          </div>
+    if(isset($_GET["action"]) && $_GET["action"] == "search")
+      searchCustomer(strtoupper($_GET["text"]));
+  }
 
-          <div class="col col-md-12 table-responsive">
-            <div class="table-responsive">
-            	<table class="table table-bordered table-striped table-hover">
-            		<thead>
-            			<tr>
-            				<th style="width: 2%;">SL.</th>
-                    <th style="width: 10%;">Customer ID</th>
-            				<th style="width: 13%;">Customer Name</th>
-                    <th style="width: 13%;">Contact Number</th>
-                    <th style="width: 17%;">Address</th>
-                    <th style="width: 13%;">Doctor's Name</th>
-                    <th style="width: 17%;">Doctor's Address</th>
-                    <th style="width: 15%;">Action</th>
-            			</tr>
-            		</thead>
-            		<tbody id="customers_div">
-                  <?php
-                    require 'php/manage_customer.php';
-                    showCustomers(0);
-                  ?>
-            		</tbody>
-            	</table>
-            </div>
-          </div>
+  function showCustomers($id) {
+    require "db_connection.php";
+    if($con) {
+      $seq_no = 0;
+      $query = "SELECT * FROM customers";
+      $result = mysqli_query($con, $query);
+      while($row = mysqli_fetch_array($result)) {
+        $seq_no++;
+        if($row['ID'] == $id)
+          showEditOptionsRow($seq_no, $row);
+        else
+          showCustomerRow($seq_no, $row);
+      }
+    }
+  }
 
-        </div>
-        <!-- form content end -->
-        <hr style="border-top: 2px solid #ff5252;">
-      </div>
-    </div>
-  </body>
-</html>
+  function showCustomerRow($seq_no, $row) {
+    ?>
+    <tr>
+      <td><?php echo $seq_no; ?></td>
+      <td><?php echo $row['ID'] ?></td>
+      <td><?php echo $row['NAME']; ?></td>
+      <td><?php echo $row['CONTACT_NUMBER']; ?></td>
+      <td><?php echo $row['ADDRESS']; ?></td>
+      <td><?php echo $row['DOCTOR_NAME']; ?></td>
+      <td><?php echo $row['DOCTOR_ADDRESS']; ?></td>
+      <td>
+        <button href="" class="btn btn-info btn-sm" onclick="editCustomer(<?php echo $row['ID']; ?>);">
+          <i class="fa fa-pencil"></i>
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCustomer(<?php echo $row['ID']; ?>);">
+          <i class="fa fa-trash"></i>
+        </button>
+      </td>
+    </tr>
+    <?php
+  }
+
+function showEditOptionsRow($seq_no, $row) {
+  ?>
+  <tr>
+    <td><?php echo $seq_no; ?></td>
+    <td><?php echo $row['ID'] ?></td>
+    <td>
+      <input type="text" class="form-control" value="<?php echo $row['NAME']; ?>" placeholder="Name" id="customer_name" onkeyup="validateName(this.value, 'name_error');">
+      <code class="text-danger small font-weight-bold float-right" id="name_error" style="display: none;"></code>
+    </td>
+    <td>
+      <input type="number" class="form-control" value="<?php echo $row['CONTACT_NUMBER']; ?>" placeholder="Contact Number" id="customer_contact_number" onblur="validateContactNumber(this.value, 'contact_number_error');">
+      <code class="text-danger small font-weight-bold float-right" id="contact_number_error" style="display: none;"></code>
+    </td>
+    <td>
+      <textarea class="form-control" placeholder="Address" id="customer_address" onblur="validateAddress(this.value, 'address_error');"><?php echo $row['ADDRESS']; ?></textarea>
+      <code class="text-danger small font-weight-bold float-right" id="address_error" style="display: none;"></code>
+    </td>
+    <td>
+      <input type="text" class="form-control" value="<?php echo $row['DOCTOR_NAME']; ?>" placeholder="Doctor's Name" id="customer_doctors_name" onkeyup="validateName(this.value, 'doctor_name_error');">
+      <code class="text-danger small font-weight-bold float-right" id="doctor_name_error" style="display: none;"></code>
+    </td>
+    <td>
+      <textarea class="form-control" placeholder="Doctor's Address" id="customer_doctors_address" onblur="validateAddress(this.value, 'doctor_address_error');"><?php echo $row['DOCTOR_ADDRESS']; ?></textarea>
+      <code class="text-danger small font-weight-bold float-right" id="doctor_address_error" style="display: none;"></code>
+    </td>
+    <td>
+      <button href="" class="btn btn-success btn-sm" onclick="updateCustomer(<?php echo $row['ID']; ?>);">
+        <i class="fa fa-edit"></i>
+      </button>
+      <button class="btn btn-danger btn-sm" onclick="cancel();">
+        <i class="fa fa-close"></i>
+      </button>
+    </td>
+  </tr>
+  <?php
+}
+
+function updateCustomer($id, $name, $contact_number, $address, $doctor_name, $doctor_address) {
+  require "db_connection.php";
+  $query = "UPDATE customers SET NAME = '$name', CONTACT_NUMBER = '$contact_number', ADDRESS = '$address', DOCTOR_NAME = '$doctor_name', DOCTOR_ADDRESS = '$doctor_address' WHERE ID = $id";
+  $result = mysqli_query($con, $query);
+  if(!empty($result))
+    showCustomers(0);
+}
+
+function searchCustomer($text) {
+  require "db_connection.php";
+  if($con) {
+    $seq_no = 0;
+    $query = "SELECT * FROM customers WHERE UPPER(NAME) LIKE '%$text%'";
+    $result = mysqli_query($con, $query);
+    while($row = mysqli_fetch_array($result)) {
+      $seq_no++;
+      showCustomerRow($seq_no, $row);
+    }
+  }
+}
+
+?>
